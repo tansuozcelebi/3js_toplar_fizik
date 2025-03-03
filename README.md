@@ -1,5 +1,7 @@
-React ThreeJS falling balls and hoover click demo trial
-
+React ile yazılmış düşen toplar fizik kanununa göre çarpar zıplar
+Mouse ile toplara hareket vereiblirsin.
+Yavaş Çalışıyor bakacağım.
+Tansu Ozcelebi
 
 # Getting Started with Create React App
 

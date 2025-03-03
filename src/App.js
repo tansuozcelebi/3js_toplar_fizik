@@ -59,7 +59,7 @@ function Ball({ position, color, transparent }) {
       onPointerOut={() => setHovered(false)}
       onClick={() => setClicked(true)}
     >
-      <sphereGeometry args={[1, 32, 32]} />
+      <sphereGeometry args={[0.7, 32, 32]} />
       <meshStandardMaterial
         color={hovered ? 'red' : color}
         metalness={1}
