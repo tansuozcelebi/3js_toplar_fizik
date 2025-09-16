@@ -1,6 +1,6 @@
 React ile yazılmış düşen toplar fizik kanununa göre çarpar zıplar
 Mouse ile toplara hareket vereiblirsin.
-Yavaş Çalışıyor bakacağım.
+Yavaş Çalışıyor bakacağım hızlanır mı?
 Tansu Ozcelebi
 
 # Getting Started with Create React App
