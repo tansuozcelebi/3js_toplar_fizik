@@ -17,9 +17,10 @@ function Ball({ position, color, transparent }) {
   const sound = useRef();
 
   useEffect(() => {
-    const listener = new THREE.AudioListener();
-    ref.current?.add(listener);
-    sound.current = new THREE.Audio(listener);
+  const listener = new THREE.AudioListener();
+  const node = ref.current;
+  if (node) node.add(listener);
+  sound.current = new THREE.Audio(listener);
 
     const audioLoader = new THREE.AudioLoader();
     audioLoader.load('/bounce2.mp3', (buffer) => {
@@ -28,9 +29,7 @@ function Ball({ position, color, transparent }) {
     });
 
     return () => {
-      if (ref.current) {
-        ref.current.remove(listener);
-      }
+      if (node) node.remove(listener);
     };
   }, [ref]);
 
@@ -53,13 +52,12 @@ function Ball({ position, color, transparent }) {
   return (
     <mesh
       ref={ref}
-      castShadow
-      receiveShadow
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
       onClick={() => setClicked(true)}
     >
-      <sphereGeometry args={[0.7, 32, 32]} />
+      {/* lower geometry detail for performance */}
+      <sphereGeometry args={[0.7, 12, 12]} />
       <meshStandardMaterial
         color={hovered ? 'red' : color}
         metalness={1}
@@ -75,7 +73,7 @@ function Plane(props) {
   const texture = useTexture('/brick.jpg');
   const [ref] = usePlane(() => ({ rotation: [-Math.PI / 2, 0, 0], ...props }));
   return (
-    <mesh ref={ref} receiveShadow>
+  <mesh ref={ref}>
       <planeGeometry args={[100, 100]} />
       <meshStandardMaterial map={texture} />
     </mesh>
@@ -83,22 +81,30 @@ function Plane(props) {
 }
 
 function App() {
-  const balls = Array.from({ length: 150 }, () => ({
+  // reduce number of balls to lower CPU/GPU load
+  const balls = Array.from({ length: 60 }, () => ({
     position: [Math.random() * 10 - 5, Math.random() * 150, Math.random() * 10 - 5],
     color: `hsl(${Math.random() * 360}, 100%, 50%)`,
     transparent: Math.random() > 0.1
   }));
 
   return (
-    <Canvas camera={{ position: [0, 0, 15], fov: 75 }} style={{ width: '100vw', height: '100vh' }} shadows>
+    <Canvas
+      camera={{ position: [0, 0, 15], fov: 75 }}
+      style={{ width: '100vw', height: '100vh' }}
+      gl={{ antialias: false, powerPreference: 'low-power' }}
+      dpr={[1, 1.5]}
+    >
       <ambientLight intensity={0.5} />
-      <spotLight position={[10, 10, 10]} angle={0.3} penumbra={1} castShadow />
+      {/* simpler light without shadows */}
+      <spotLight position={[10, 10, 10]} angle={0.3} penumbra={1} />
       <Physics>
         {balls.map((props, i) => <Ball key={i} {...props} />)}
         <Plane position={[0, -10, 0]} />
       </Physics>
       <OrbitControls />
-      <Environment files="/pretoria_gardens_4k.hdr" background />
+      {/* remove background to reduce environment cost */}
+      <Environment files="/pretoria_gardens_4k.hdr" />
     </Canvas>
   );
 }
