@@ -1,0 +1,7 @@
+{
+  "git.enableSmartCommit": true,
+  "git.enableSmartCommitChanges": "tracked",
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.autorefresh": true
+}
