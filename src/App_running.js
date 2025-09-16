@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Environment, useTexture } from '@react-three/drei';
+import { OrbitControls, useTexture } from '@react-three/drei';
 import { Physics, useSphere, usePlane } from '@react-three/cannon';
 import * as THREE from 'three';
 
@@ -9,7 +9,10 @@ function Ball({ position, color, transparent }) {
     mass: 1,
     position,
     args: [0.5],
-    material: { restitution: 0.8 }
+    material: { restitution: 0.8 },
+    allowSleep: true,
+    sleepSpeedLimit: 0.1,
+    sleepTimeLimit: 1
   }));
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
@@ -93,7 +96,7 @@ function App() {
       camera={{ position: [0, 0, 15], fov: 75 }}
       style={{ width: '100vw', height: '100vh' }}
       gl={{ antialias: false, powerPreference: 'low-power' }}
-      dpr={[1, 1.5]}
+      dpr={1}
     >
       <ambientLight intensity={0.5} />
       {/* simpler light without shadows */}
@@ -102,9 +105,7 @@ function App() {
         {balls.map((props, i) => <Ball key={i} {...props} />)}
         <Plane position={[0, -10, 0]} />
       </Physics>
-      <OrbitControls />
-      {/* remove background to reduce environment cost */}
-      <Environment files="/pretoria_gardens_4k.hdr" />
+  <OrbitControls />
     </Canvas>
   );
 }

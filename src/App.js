@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Environment, useTexture } from '@react-three/drei';
+import { OrbitControls, useTexture } from '@react-three/drei';
 import { Physics, useSphere, usePlane, useBox } from '@react-three/cannon';
 import * as THREE from 'three';
 import Stats from 'stats.js';
@@ -10,8 +10,14 @@ function Ball({ position, color, transparent }) {
     mass: 1,
     position,
     args: [0.5],
-    material: { restitution: 0.8 }
+    material: { restitution: 0.8 },
+    allowSleep: true,
+    sleepSpeedLimit: 0.1,
+    sleepTimeLimit: 1
   }));
+  // enable sleeping to skip physics for inactive balls
+  // note: cannon body sleep properties are passed through useSphere
+  // we'll re-create ref with sleep options below
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
   const { camera } = useThree();
@@ -147,8 +153,7 @@ function App() {
         <Plane position={[0, -10, 0]} />
         <Torus />
       </Physics>
-      <OrbitControls />
-      <Environment files="/pretoria_gardens_4k.hdr" />
+  <OrbitControls />
     </Canvas>
   );
 }
