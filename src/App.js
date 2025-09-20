@@ -30,7 +30,7 @@ function Ball({ position, color, transparent }) {
   sound.current = new THREE.Audio(listener);
 
     const audioLoader = new THREE.AudioLoader();
-    audioLoader.load('/bounce2.mp3', (buffer) => {
+    audioLoader.load('/bounce.mp3', (buffer) => {
       sound.current.setBuffer(buffer);
       sound.current.setVolume(0.5);
     });
