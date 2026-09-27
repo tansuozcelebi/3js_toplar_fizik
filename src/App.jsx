@@ -1,11 +1,28 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, useTexture } from '@react-three/drei';
+import { OrbitControls, useTexture, Stats, Environment } from '@react-three/drei';
 import { Physics, useSphere, usePlane, useBox } from '@react-three/cannon';
 import * as THREE from 'three';
-import Stats from 'stats.js';
 
-function Ball({ position, color, transparent }) {
+// Tek bir listener ve tek bir ses buffer'ı tüm toplar arasında paylaşılır
+let sharedListener = null;
+let bounceBuffer = null;
+function getListener(camera) {
+  if (!sharedListener) {
+    sharedListener = new THREE.AudioListener();
+    camera.add(sharedListener);
+    new THREE.AudioLoader().load('/bounce.mp3', (buffer) => {
+      bounceBuffer = buffer;
+    });
+  }
+  return sharedListener;
+}
+
+function Ball({ position, color }) {
+  const { camera } = useThree();
+  const sound = useRef();
+  const hasBounced = useRef(false);
+
   const [ref, api] = useSphere(() => ({
     mass: 1,
     position,
@@ -13,58 +30,38 @@ function Ball({ position, color, transparent }) {
     material: { restitution: 0.8 },
     allowSleep: true,
     sleepSpeedLimit: 0.1,
-    sleepTimeLimit: 1
+    sleepTimeLimit: 1,
+    // her top sadece ilk çarpmasında ses çıkarır
+    onCollide: (e) => {
+      const s = sound.current;
+      if (hasBounced.current || !s || !bounceBuffer || e.contact.impactVelocity < 2) return;
+      hasBounced.current = true;
+      s.setBuffer(bounceBuffer);
+      s.play();
+    }
   }));
-  // enable sleeping to skip physics for inactive balls
-  // note: cannon body sleep properties are passed through useSphere
-  // we'll re-create ref with sleep options below
   const [hovered, setHovered] = useState(false);
-  const [clicked, setClicked] = useState(false);
-  const { camera } = useThree();
-  const sound = useRef();
 
   useEffect(() => {
-  const listener = new THREE.AudioListener();
-  const node = ref.current;
-  if (node) node.add(listener);
-  sound.current = new THREE.Audio(listener);
+    sound.current = new THREE.Audio(getListener(camera));
+    sound.current.setVolume(0.15);
+  }, [camera]);
 
-    const audioLoader = new THREE.AudioLoader();
-    audioLoader.load('/bounce.mp3', (buffer) => {
-      sound.current.setBuffer(buffer);
-      sound.current.setVolume(0.5);
-    });
-
-    return () => {
-      if (node) node.remove(listener);
-    };
-  }, [ref]);
-
-  useFrame(() => {
-    api.velocity.subscribe((velocity) => {
-      if (velocity.some((v) => Math.abs(v) > 0.1)) {
-        if (sound.current.isPlaying) sound.current.stop();
-        sound.current.play();
-      }
-    });
-
-    if (clicked) {
-      const direction = new THREE.Vector3();
-      camera.getWorldDirection(direction);
-      api.velocity.set(direction.x * 10, direction.y * 10, direction.z * 10); // Hızı artırdık
-      setClicked(false);
-    }
-  });
+  const handleClick = () => {
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+    api.wakeUp();
+    api.velocity.set(direction.x * 10, direction.y * 10, direction.z * 10);
+  };
 
   return (
     <mesh
-  ref={ref}
+      ref={ref}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
-      onClick={() => setClicked(true)}
+      onClick={handleClick}
     >
-  {/* lower geometry detail for performance */}
-  <sphereGeometry args={[0.7, 12, 12]} />
+      <sphereGeometry args={[0.7, 12, 12]} />
       <meshStandardMaterial
         color={hovered ? 'red' : color}
         metalness={1}
@@ -104,7 +101,6 @@ function Torus() {
 
   return (
     <mesh ref={ref}>
-      {/* lower torus detail */}
       <torusGeometry args={[2.5, 0.5, 8, 32]} />
       <meshStandardMaterial color="gold" metalness={1} roughness={0.2} />
     </mesh>
@@ -112,48 +108,38 @@ function Torus() {
 }
 
 function App() {
-  // reduce the number of balls to improve performance
-  const balls = Array.from({ length: 60 }, () => ({
-    position: [Math.random() * 10 - 5, Math.random() * 150, Math.random() * 10 - 5],
-    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-    transparent: Math.random() > 0.1
-  }));
-
-  const stats = useRef();
-
-  useEffect(() => {
-    stats.current = new Stats();
-    stats.current.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-    document.body.appendChild(stats.current.dom);
-
-    const animate = () => {
-      stats.current.begin();
-      stats.current.end();
-      requestAnimationFrame(animate);
-    };
-
-    requestAnimationFrame(animate);
-
-    return () => {
-      document.body.removeChild(stats.current.dom);
-    };
-  }, []);
+  // rastgele başlangıç değerleri sadece bir kez üretilir
+  const balls = useMemo(
+    () =>
+      Array.from({ length: 60 }, () => ({
+        position: [Math.random() * 10 - 5, Math.random() * 150, Math.random() * 10 - 5],
+        color: `hsl(${Math.random() * 360}, 100%, 50%)`
+      })),
+    []
+  );
 
   return (
     <Canvas
       camera={{ position: [0, 0, 15], fov: 75 }}
       style={{ width: '100vw', height: '100vh' }}
-      gl={{ antialias: false, powerPreference: 'low-power' }}
+      gl={{ antialias: false, powerPreference: 'high-performance' }}
       dpr={[1, 1.5]}
     >
-      <ambientLight intensity={0.5} />
-      <spotLight position={[10, 10, 10]} angle={0.3} penumbra={1} />
-      <Physics>
+      <ambientLight intensity={0.4} />
+      <hemisphereLight args={['#ffffff', '#554433', 0.8]} />
+      <directionalLight position={[10, 20, 10]} intensity={2} />
+      <spotLight position={[-10, 15, 10]} angle={0.4} penumbra={1} intensity={150} />
+      {/* metalik toplar için yansıma; HDR yüklenirken sahne beklemesin diye ayrı Suspense */}
+      <Suspense fallback={null}>
+        <Environment files="/pretoria_gardens_4k.hdr" />
+      </Suspense>
+      <Physics broadphase="SAP" allowSleep>
         {balls.map((props, i) => <Ball key={i} {...props} />)}
         <Plane position={[0, -10, 0]} />
         <Torus />
       </Physics>
-  <OrbitControls />
+      <OrbitControls />
+      <Stats />
     </Canvas>
   );
 }
